@@ -186,6 +186,19 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *rel
 		req.Set("originator", "codex_cli_rs")
 	}
 
+	// ChatGPT derives prompt-cache affinity from the `session-id` header (this is
+	// what Codex CLI's build_session_headers sends). Clients may use a different
+	// name — ZCode sends `x-session-id` — so map it across; without it the backend
+	// cannot tell two requests apart and never reuses the cached prefix.
+	if sessionID := firstRequestHeader(info, "session-id", "x-session-id"); sessionID != "" {
+		if req.Get("session-id") == "" {
+			req.Set("session-id", sessionID)
+		}
+		if req.Get("thread-id") == "" {
+			req.Set("thread-id", sessionID)
+		}
+	}
+
 	// chatgpt.com/backend-api/codex/responses is strict about Content-Type.
 	// Clients may omit it or include parameters like `application/json; charset=utf-8`,
 	// which can be rejected by the upstream. Force the exact media type.
@@ -197,4 +210,24 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *rel
 	}
 
 	return nil
+}
+
+// firstRequestHeader returns the first non-empty value among names, matched
+// case-insensitively. RelayInfo.RequestHeaders keeps net/http's canonical key
+// form (e.g. X-Session-Id), so a plain lower-case lookup would miss.
+func firstRequestHeader(info *relaycommon.RelayInfo, names ...string) string {
+	if info == nil || len(info.RequestHeaders) == 0 {
+		return ""
+	}
+	for _, name := range names {
+		for key, value := range info.RequestHeaders {
+			if !strings.EqualFold(key, name) {
+				continue
+			}
+			if trimmed := strings.TrimSpace(value); trimmed != "" {
+				return trimmed
+			}
+		}
+	}
+	return ""
 }
