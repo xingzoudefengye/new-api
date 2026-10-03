@@ -129,12 +129,10 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		if info.IsStream {
 			return openai.OaiResponsesStreamHandler(c, info, resp)
 		}
-		// 请求侧已强制流式（见 ConvertOpenAIResponsesRequest），客户端要的是非流式，
-		// 所以这里把 SSE 聚合回一个完整响应再返回。
-		if resp != nil && strings.Contains(strings.ToLower(resp.Header.Get("Content-Type")), "text/event-stream") {
-			return openai.OaiResponsesBufferedHandler(c, info, resp)
-		}
-		return openai.OaiResponsesHandler(c, info, resp)
+		// 请求侧已强制流式（见 ConvertOpenAIResponsesRequest），上游 200 就一定是 SSE
+		// 流（它的 Content-Type 并不可靠，别用它判断）。客户端要的是非流式，
+		// 所以统一把 SSE 聚合回一个完整响应。
+		return openai.OaiResponsesBufferedHandler(c, info, resp)
 	default:
 		return nil, types.NewError(errors.New("codex channel: endpoint not supported"), types.ErrorCodeInvalidRequest)
 	}
