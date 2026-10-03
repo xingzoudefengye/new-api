@@ -864,6 +864,11 @@ func TestChannel(c *gin.Context) {
 	testModel := c.Query("model")
 	endpointType := c.Query("endpoint_type")
 	isStream, _ := strconv.ParseBool(c.Query("stream"))
+	// Codex 渠道的上游只接受流式请求，非流式会被直接拒绝，
+	// 所以手动测试也必须走流式，与自动健康检查保持一致。
+	if channel.Type == constant.ChannelTypeCodex {
+		isStream = true
+	}
 	testUserID, err := resolveChannelTestUserID(c)
 	if err != nil {
 		common.ApiError(c, err)
