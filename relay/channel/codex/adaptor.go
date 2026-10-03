@@ -99,6 +99,11 @@ func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommo
 	if isCompact {
 		return request, nil
 	}
+	// ChatGPT 的 Codex 后端只接受流式请求。客户端要非流式时也强制走流式，
+	// 由 DoResponse 把 SSE 聚合回非流式响应，否则上游会直接 400
+	// （"Stream must be set to true"）。
+	stream := true
+	request.Stream = &stream
 	// codex: store must be false
 	request.Store = json.RawMessage("false")
 	// rm max_output_tokens
@@ -123,6 +128,11 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 	case relayconstant.RelayModeResponses:
 		if info.IsStream {
 			return openai.OaiResponsesStreamHandler(c, info, resp)
+		}
+		// 请求侧已强制流式（见 ConvertOpenAIResponsesRequest），客户端要的是非流式，
+		// 所以这里把 SSE 聚合回一个完整响应再返回。
+		if resp != nil && strings.Contains(strings.ToLower(resp.Header.Get("Content-Type")), "text/event-stream") {
+			return openai.OaiResponsesBufferedHandler(c, info, resp)
 		}
 		return openai.OaiResponsesHandler(c, info, resp)
 	default:
