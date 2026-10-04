@@ -131,7 +131,7 @@ var channelAffinitySetting = ChannelAffinitySetting{
 			ValueRegex:            "",
 			TTLSeconds:            0,
 			ParamOverrideTemplate: buildCodexPassHeaderTemplate(),
-			SkipRetryOnFailure:    true,
+			SkipRetryOnFailure:    false,
 			IncludeUsingGroup:     true,
 			IncludeRuleName:       true,
 			UserAgentInclude:      nil,
