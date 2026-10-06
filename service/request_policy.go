@@ -141,6 +141,10 @@ func MarkRequestPolicySuccess(c *gin.Context, stream *relaycommon.StreamStatus) 
 	if c != nil {
 		channelID = c.GetInt("channel_id")
 	}
+	if state.Successful && channelID > 0 {
+		// 连续失败计数只针对"连续"：任何一次成功都把该渠道的计数清零。
+		resetChannelFailure(channelID)
+	}
 	state.AddEvent(PolicyEvent{ChannelID: channelID, Decision: decision})
 }
 

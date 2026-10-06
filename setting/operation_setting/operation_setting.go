@@ -30,3 +30,8 @@ func AutomaticDisableKeywordsFromString(s string) {
 		}
 	}
 }
+
+// AutomaticDisableFailureThreshold 是连续服务端（5xx）失败多少次后自动禁用渠道。
+// 瞬时抖动不应拉黑渠道，所以按连续次数判定；0 表示关闭按次数禁用
+// （401/关键词命中仍走立即禁用路径）。成功一次即清零。
+var AutomaticDisableFailureThreshold = 3
