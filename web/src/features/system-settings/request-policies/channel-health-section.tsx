@@ -247,6 +247,9 @@ export function ChannelHealthSection({
 
   const autoDisableStatusCodes = form.watch('AutomaticDisableStatusCodes')
   const channelTestMode = form.watch('monitor_setting.channel_test_mode')
+  // 总开关关闭时，下面的模式/间隔选项只是未生效的占位值，必须置灰以免误导。
+  const autoTestEnabled =
+    form.watch('monitor_setting.auto_test_channel_enabled') === true
   let channelTestModeDescription: string
   switch (channelTestMode) {
     case 'auto_ban_only':
@@ -303,6 +306,9 @@ export function ChannelHealthSection({
                 'With these settings, automatic disabling is off for all channels.'
               )}
         </p>
+        {!autoTestEnabled && (
+          <p>{t('Scheduled tests are off; the options below take effect only after enabling them.')}</p>
+        )}
         {form.watch('AutomaticEnableChannelEnabled') &&
           !form.watch('monitor_setting.auto_test_channel_enabled') && (
             <p>
@@ -351,7 +357,8 @@ export function ChannelHealthSection({
                 <SettingsControlChildren
                   role='group'
                   aria-label={t('Scheduled test options')}
-                  className='grid gap-x-5 gap-y-4 lg:grid-cols-2'
+                  aria-disabled={!autoTestEnabled}
+                  className={`grid gap-x-5 gap-y-4 lg:grid-cols-2 ${autoTestEnabled ? '' : 'pointer-events-none opacity-50'}`}
                 >
                   <FormField
                     control={form.control}
@@ -360,6 +367,7 @@ export function ChannelHealthSection({
                       <FormItem>
                         <FormLabel>{t('Channel test mode')}</FormLabel>
                         <Select
+                          disabled={!autoTestEnabled}
                           items={[
                             {
                               value: 'scheduled_all',
@@ -380,7 +388,7 @@ export function ChannelHealthSection({
                           onValueChange={field.onChange}
                         >
                           <FormControl>
-                            <SelectTrigger className='w-full'>
+                            <SelectTrigger disabled={!autoTestEnabled} className='w-full'>
                               <SelectValue />
                             </SelectTrigger>
                           </FormControl>
@@ -419,6 +427,7 @@ export function ChannelHealthSection({
                             type='number'
                             min={1}
                             step={1}
+                            disabled={!autoTestEnabled}
                             {...safeNumberFieldProps(field)}
                           />
                         </FormControl>
