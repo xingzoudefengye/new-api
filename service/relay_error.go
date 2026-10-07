@@ -67,20 +67,20 @@ func ProcessChannelError(c *gin.Context, channelError types.ChannelError, err *t
 	}
 	logger.LogError(c, fmt.Sprintf("channel error (channel #%d, status code: %d): %s", channelError.ChannelId, err.StatusCode, common.LocalLogPreview(err.MaskSensitiveErrorWithStatusCode())))
 	if ShouldDisableChannel(err) && channelError.AutoBan {
+		resetChannelFailure(channelError.ChannelId)
 		reason := err.MaskSensitiveErrorWithStatusCode()
 		gopool.Go(func() {
 			DisableChannel(channelError, reason)
 		})
 	} else if channelError.AutoBan && common.AutomaticDisableChannelEnabled &&
-		(err.StatusCode >= 500 || err.StatusCode == 429) && operation_setting.AutomaticDisableFailureThreshold > 0 {
-		// 瞬时服务端错误（503）与上游容量饱和（429）不应一次就禁渠道：
-		// 连续达到阈值才禁用，禁用后本请求的后续重试会因渠道退出内存缓存
-		// 而自然切换到其他渠道。429 不计的话，被粘性钉住的渠道饱和时重试
-		// 永远留在原渠道（重试只降优先级层，不会上升）。
+		operation_setting.AutomaticDisableFailureThreshold > 0 {
+		// 统一的三振规则：任何失败（5xx/429/4xx/网络错误，不区分类型）都计入
+		// 连续失败，成功一次即清零，连 3 次禁用。禁用后本请求的后续重试会因
+		// 渠道退出内存缓存而自然切换到其他渠道。
 		count := recordChannelFailure(channelError.ChannelId)
 		if count >= operation_setting.AutomaticDisableFailureThreshold {
 			resetChannelFailure(channelError.ChannelId)
-			reason := fmt.Sprintf("连续 %d 次服务端错误（HTTP %d）", count, err.StatusCode)
+			reason := fmt.Sprintf("连续 %d 次请求失败（HTTP %d）", count, err.StatusCode)
 			gopool.Go(func() {
 				DisableChannel(channelError, reason)
 			})
