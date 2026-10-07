@@ -72,9 +72,11 @@ func ProcessChannelError(c *gin.Context, channelError types.ChannelError, err *t
 			DisableChannel(channelError, reason)
 		})
 	} else if channelError.AutoBan && common.AutomaticDisableChannelEnabled &&
-		err.StatusCode >= 500 && operation_setting.AutomaticDisableFailureThreshold > 0 {
-		// 瞬时服务端错误（如 503）不应一次就禁渠道：连续达到阈值才禁用，
-		// 禁用后本请求的后续重试会因渠道退出内存缓存而自然切换到其他渠道。
+		(err.StatusCode >= 500 || err.StatusCode == 429) && operation_setting.AutomaticDisableFailureThreshold > 0 {
+		// 瞬时服务端错误（503）与上游容量饱和（429）不应一次就禁渠道：
+		// 连续达到阈值才禁用，禁用后本请求的后续重试会因渠道退出内存缓存
+		// 而自然切换到其他渠道。429 不计的话，被粘性钉住的渠道饱和时重试
+		// 永远留在原渠道（重试只降优先级层，不会上升）。
 		count := recordChannelFailure(channelError.ChannelId)
 		if count >= operation_setting.AutomaticDisableFailureThreshold {
 			resetChannelFailure(channelError.ChannelId)
